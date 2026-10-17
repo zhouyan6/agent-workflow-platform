@@ -1996,7 +1996,7 @@ mount_agent(
 
 from bridge.routes import mount_pi
 
-mount_pi(app, ROOT, resolve_token)
+mount_pi(app, ROOT, resolve_token, ctx_factory=_agent_ctx)
 
 
 # ---------------- frontend ----------------

@@ -2,6 +2,8 @@
 """Pi 桥的 WebSocket 端点。"""
 import asyncio
 import json
+import os
+import secrets
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -12,13 +14,18 @@ manager = None          # 由 mount_pi 注入（PiSessionManager）
 _resolve_token = None   # 由 mount_pi 注入（server.resolve_token）
 
 
-def mount_pi(app, root, resolve_token_fn) -> None:
-    """挂载 /api/pi/ws。延迟 import 避免与 server.py 循环依赖。"""
+def mount_pi(app, root, resolve_token_fn, ctx_factory=None) -> None:
+    """挂载 /api/pi/ws 与工具后端。延迟 import 避免与 server.py 循环依赖。"""
     global manager, _resolve_token
     from .sessions import PiSessionManager
+    from .tool_backend import mount_tool_backend
     manager = PiSessionManager(root)
+    manager.bridge_token = secrets.token_urlsafe(24)
+    manager.bridge_url = f"http://127.0.0.1:{os.environ.get('WORKBENCH_PORT', '8787')}"
+    manager.ctx_factory = ctx_factory
     _resolve_token = resolve_token_fn
     app.include_router(router)
+    mount_tool_backend(app, manager)
 
 
 async def _pump(client, ws) -> None:
@@ -39,7 +46,7 @@ async def pi_ws(ws: WebSocket):
         await ws.close(code=4401)
         return
     conv = ws.query_params.get("conv") or "default"
-    client = await manager.get(conv)
+    client = await manager.get(conv, user)
     pump = asyncio.create_task(_pump(client, ws))
     try:
         while True:

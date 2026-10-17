@@ -35,7 +35,7 @@ class FakeManager:
     def __init__(self):
         self.client = FakeClient()
 
-    async def get(self, conv_id):
+    async def get(self, conv_id, user=None):
         return self.client
 
 

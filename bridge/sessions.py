@@ -16,6 +16,11 @@ class PiSessionManager:
         self.sessions_dir = os.path.join(root, sessions_subdir)
         os.makedirs(self.sessions_dir, exist_ok=True)
         self._clients: dict[str, PiClient] = {}
+        self.bridge_token: str | None = None    # 由 mount_pi 赋值
+        self.bridge_url: str | None = None      # 由 mount_pi 赋值
+        self.ctx_factory = None                 # 由 mount_pi 赋值（server._agent_ctx）
+        self._users: dict[str, dict] = {}
+        self._plans: dict[str, list] = {}
 
     # ---- conv_id → session 文件 映射（Pi 文件名是 时间戳_uuid.jsonl，
     # 不含会话名，无法按名匹配，必须由桥自己记录）----
@@ -40,27 +45,36 @@ class PiSessionManager:
         path = self._load_index().get(conv_id)
         return path if path and os.path.isfile(path) else None
 
-    def _zhipu_env(self) -> dict:
+    def _pi_env(self, conv_id: str) -> dict:
+        env: dict = {}
         cfg_path = os.path.join(self.root, "config.json")
         try:
             with open(cfg_path, encoding="utf-8") as f:
                 cfg = json.load(f)
+            if cfg.get("api_key"):
+                env["ZHIPU_API_KEY"] = cfg["api_key"]
         except (OSError, ValueError):
-            return {}
-        key = cfg.get("api_key") or ""
-        return {"ZHIPU_API_KEY": key} if key else {}
+            pass
+        if self.bridge_url:
+            env["PI_BRIDGE_URL"] = self.bridge_url
+        if self.bridge_token:
+            env["PI_BRIDGE_TOKEN"] = self.bridge_token
+        env["PI_CONV"] = conv_id
+        return env
 
     def _spawn_args(self, conv_id: str) -> list[str]:
         # 不传 --provider/--model 时 Pi 会连默认 Anthropic（403），必须显式指定
         return ["--mode", "rpc", "--session-dir", self.sessions_dir,
                 "--provider", "zhipu", "--model", "glm-4.7", "-n", conv_id]
 
-    async def get(self, conv_id: str) -> PiClient:
+    async def get(self, conv_id: str, user: dict | None = None) -> PiClient:
+        if user is not None:
+            self._users[conv_id] = user
         client = self._clients.get(conv_id)
         if client and client.process.alive:
             return client
         proc = PiProcess(self._spawn_args(conv_id), cwd=self.root,
-                         env=self._zhipu_env())
+                         env=self._pi_env(conv_id))
         await proc.start()
         client = PiClient(proc)
         self._clients[conv_id] = client
@@ -91,3 +105,13 @@ class PiSessionManager:
             except Exception:
                 log.warning("client close failed", exc_info=True)
         self._clients.clear()
+
+    def user_for(self, conv_id: str) -> dict | None:
+        return self._users.get(conv_id)
+
+    async def push_plan(self, conv_id: str, steps: list) -> None:
+        self._plans[conv_id] = steps
+        client = self._clients.get(conv_id)
+        if client and client.process.alive:
+            await client.stream_events.put(
+                {"type": "_bridge_plan", "steps": steps})

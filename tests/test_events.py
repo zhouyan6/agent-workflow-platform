@@ -57,3 +57,9 @@ def test_process_exit_to_error():
 
 def test_unknown_event_empty():
     assert translate_event({"type": "queue_update"}) == []
+
+
+def test_bridge_plan_to_plan_update():
+    ev = {"type": "_bridge_plan", "steps": [{"title": "s", "status": "done"}]}
+    assert translate_event(ev) == [
+        {"type": "plan_update", "steps": [{"title": "s", "status": "done"}]}]

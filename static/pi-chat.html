@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>Pi 智能体（第 1 期骨架）</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; display: flex;
+         flex-direction: column; height: 100vh; background: #fafafa; }
+  header { padding: 10px 16px; background: #1a1a2e; color: #fff;
+           display: flex; gap: 12px; align-items: center; }
+  header input { flex: 0 0 220px; }
+  #log { flex: 1; overflow-y: auto; padding: 16px; }
+  .msg { margin: 8px 0; padding: 8px 12px; border-radius: 8px; max-width: 80%;
+         white-space: pre-wrap; word-break: break-word; }
+  .user { background: #dcedc8; margin-left: auto; }
+  .bot  { background: #fff; border: 1px solid #e0e0e0; }
+  .think { color: #888; font-size: 12px; border-left: 3px solid #ccc;
+           padding-left: 8px; margin: 4px 0; white-space: pre-wrap; }
+  .tool { color: #1565c0; font-size: 12px; }
+  .err { color: #c62828; }
+  footer { display: flex; gap: 8px; padding: 12px; background: #fff;
+           border-top: 1px solid #ddd; }
+  footer textarea { flex: 1; height: 44px; resize: none; }
+  button { padding: 8px 16px; cursor: pointer; }
+  #confirm { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); }
+  #confirm .box { background: #fff; margin: 20% auto; padding: 20px;
+                  width: 320px; border-radius: 8px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <b>Pi 智能体</b>
+  <span id="status" style="color:#aaa">未连接</span>
+  <input id="conv" placeholder="会话名" value="default">
+  <button onclick="connect()">连接</button>
+  <button onclick="abortTurn()">中断</button>
+</header>
+<div id="log"></div>
+<footer>
+  <textarea id="input" placeholder="输入消息，Ctrl+Enter 发送"></textarea>
+  <button onclick="send()">发送</button>
+</footer>
+<div id="confirm"><div class="box">
+  <h3 id="c-title"></h3><p id="c-msg"></p>
+  <button onclick="answerConfirm(true)">确认</button>
+  <button onclick="answerConfirm(false)">拒绝</button>
+</div></div>
+<script>
+let ws = null, pendingConfirmId = null, botEl = null, thinkEl = null;
+
+const $ = id => document.getElementById(id);
+
+function addDiv(cls, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.textContent = text;
+  $("log").appendChild(d);
+  $("log").scrollTop = 1e9;
+  return d;
+}
+
+function connect() {
+  if (ws) { try { ws.close(); } catch (e) {} }
+  $("status").textContent = "连接中…";
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/api/pi/ws?conv=${encodeURIComponent($("conv").value.trim() || "default")}`);
+  ws.onopen = () => $("status").textContent = "已连接";
+  ws.onclose = () => $("status").textContent = "已断开";
+  ws.onerror = () => $("status").textContent = "连接失败（先到主站登录）";
+  ws.onmessage = e => handle(JSON.parse(e.data));
+}
+
+function handle(m) {
+  if (m.type === "token") {
+    if (!botEl) botEl = addDiv("bot", "");
+    botEl.textContent += m.delta;
+  } else if (m.type === "thinking") {
+    if (!thinkEl) thinkEl = addDiv("think", "");
+    thinkEl.textContent += m.delta;
+  } else if (m.type === "turn_start") {
+    botEl = null; thinkEl = null;
+  } else if (m.type === "turn_done") {
+    botEl = null; thinkEl = null;
+  } else if (m.type === "tool_start") {
+    addDiv("tool", `⚙ 调用工具 ${m.tool} …`);
+  } else if (m.type === "tool_end") {
+    addDiv("tool", `⚙ 工具完成`);
+  } else if (m.type === "confirm_request") {
+    pendingConfirmId = m.id;
+    $("c-title").textContent = m.request.title;
+    $("c-msg").textContent = m.request.message;
+    $("confirm").style.display = "block";
+  } else if (m.type === "error") {
+    addDiv("err", m.message);
+  }
+}
+
+function send() {
+  const text = $("input").value.trim();
+  if (!text || !ws || ws.readyState !== 1) return;
+  addDiv("user", text);
+  ws.send(JSON.stringify({ type: "message", text }));
+  $("input").value = "";
+}
+
+function abortTurn() {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "abort" }));
+}
+
+function answerConfirm(ok) {
+  $("confirm").style.display = "none";
+  if (ws && pendingConfirmId)
+    ws.send(JSON.stringify({ type: "confirm", id: pendingConfirmId, confirmed: ok }));
+  pendingConfirmId = null;
+}
+
+$("input").addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.ctrlKey) { e.preventDefault(); send(); }
+});
+</script>
+</body>
+</html>

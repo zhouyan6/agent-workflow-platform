@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>科研工作台</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/static/style.css?v=33">
+</head>
+<body>
+
+<!-- 登录层 -->
+<div id="login-page" class="on">
+  <div class="login-card">
+    <div class="brand" style="justify-content:center;margin-bottom:14px">
+      <div class="logo">科</div><b>科研工作台</b>
+    </div>
+    <div style="text-align:center;color:var(--dim);font-size:13px;margin-bottom:18px">
+      论文复现流水线 · 导师与学生共用实验平台</div>
+    <div class="form-row">
+      <label class="f"><span>用户名</span>
+        <input id="login-user" autocomplete="username" placeholder="niexin / zhouyan / lihan / jiyang"></label>
+      <label class="f"><span>密码</span>
+        <input id="login-pass" type="password" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')doLogin()"></label>
+    </div>
+    <div id="login-err"></div>
+    <button class="pri" style="width:100%" onclick="doLogin()">登 录</button>
+  </div>
+</div>
+
+<header id="topbar">
+  <div class="brand">
+    <div class="logo">科</div><b>科研工作台</b><span class="badge-beta">内测版</span>
+  </div>
+  <nav id="nav">
+    <button class="nav-item on" data-page="欢迎"><svg viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5V21H3z"/><path d="M9 21v-7h6v7"/></svg>欢迎</button>
+    <button class="nav-item" data-page="调研"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V4H6.5A2.5 2.5 0 0 0 4 6.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/></svg>论文调研</button>
+    <button class="nav-item" data-page="执行"><svg viewBox="0 0 24 24"><path d="m5 3 14 9-14 9V3z"/></svg>执行</button>
+    <button class="nav-item" data-page="日志"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>日志</button>
+    <button class="nav-item" data-page="对照"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-6 3 3 5-8"/></svg>对照</button>
+    <button class="nav-item" data-page="设置"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.6-2-3.4-2.4 1a7 7 0 0 0-2-1.2L14 3h-4l-.5 2.6a7 7 0 0 0-2 1.2l-2.4-1-2 3.4 2 1.6A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.2l-2 1.6 2 3.4 2.4-1a7 7 0 0 0 2 1.2L10 21h4l.5-2.6a7 7 0 0 0 2-1.2l2.4 1 2-3.4-2-1.6A7 7 0 0 0 19 12z"/></svg>设置</button>
+  </nav>
+  <div class="topbar-r">
+    <span>工作区</span>
+    <select id="top-workspace" style="width:auto"><option>我的实验室</option></select>
+    <span id="top-conn"><span class="dot"></span> Runtime</span>
+    <button class="sm" onclick="alert('反馈通道建设中')">反馈</button>
+    <div style="position:relative">
+      <div class="avatar" id="avatar" onclick="toggleUserMenu()" style="cursor:pointer">?</div>
+      <div id="user-menu">
+        <div id="user-menu-name"></div>
+        <div id="user-menu-role" class="sub"></div>
+        <button class="sm danger" style="width:100%;margin-top:8px" onclick="doLogout()">退出登录</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ================= 欢迎 ================= -->
+<section class="page on" id="page-欢迎">
+  <div class="welcome-cols">
+    <div>
+      <div class="hero-grid">
+        <div class="hero card" style="border:none">
+          <div class="runtime"><span class="dot" id="runtime-dot"></span><span id="runtime-txt">正在连接 GPU Runtime…</span></div>
+          <h1>把一篇论文推进成<br>可对照的实验复现。</h1>
+          <p>科研工作台做四件事：盯紧节点、拆解论文、在服务器目录里开跑、用日志和对照判断有没有复现成功。</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-h"><div class="ic">◎</div><div><b>当前焦点</b><div class="sub">正在推进的论文与实验</div></div>
+          <div class="right"><button class="sm" onclick="pickPaper()">重选</button></div></div>
+        <div id="focus-body"><div class="empty">还没有选择论文 — 从下方入口开始</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><div class="ic">＋</div><div><b>论文快速入口</b><div class="sub">上传 PDF / arXiv 链接 / 粘贴文本，进入结构化调研</div></div></div>
+        <div class="form-row" style="grid-template-columns:1fr 3fr">
+          <label class="f"><span>项目 / 课题</span>
+            <select id="e-project"><option>PcmDiffFL · 不完整多模态联邦学习</option><option>新课题…</option></select></label>
+          <label class="f"><span>arXiv 链接（或粘贴文本到下方）</span>
+            <input id="e-arxiv" placeholder="https://arxiv.org/abs/xxxx.xxxxx"></label>
+        </div>
+        <div class="roles">
+          <span class="chip on">论文拆解</span><span class="chip">参数对齐</span><span class="chip">训练监看</span><span class="chip">对照报告</span>
+        </div>
+        <textarea id="e-text" rows="3" placeholder="或把论文摘要 / 关键段落粘贴到这里（至少 50 字）…"></textarea>
+        <div class="upload-zone" style="margin-top:10px">
+          <button class="uz" id="uz-pdf" onclick="$('pdf-file').click()">
+            <svg viewBox="0 0 24 24"><path d="M12 16V4m0 0 -4 4m4-4 4 4"/><path d="M4 20h16"/></svg>上传 PDF</button>
+          <button class="uz on" id="uz-arxiv" onclick="focusArxiv()">
+            <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>arXiv 链接</button>
+          <button class="uz" id="uz-text" onclick="focusText()">
+            <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>粘贴文本</button>
+        </div>
+        <input type="file" id="pdf-file" accept=".pdf" style="display:none" onchange="uploadPdf(this)">
+        <div class="hero-actions"><button class="pri" id="btn-research" onclick="startResearch()">进入论文调研 →</button></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><div class="ic">▤</div><b>GPU 节点</b>
+          <div class="right"><span class="sub" id="gpu-summary"></span></div></div>
+        <div style="overflow-x:auto"><table><thead><tr>
+          <th>节点</th><th>型号</th><th>显存占用</th><th>利用率</th><th>状态</th><th>运行中实验</th></tr></thead>
+          <tbody id="gpu-mini"><tr><td colspan="6" class="empty">连接中…</td></tr></tbody></table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-h"><div class="ic">◔</div><b>我的实验</b>
+          <div class="right"><button class="sm" onclick="showPage('执行')">提交新实验</button></div></div>
+        <div style="overflow-x:auto"><table><thead><tr>
+          <th>Run</th><th>节点</th><th>进度</th><th>预计完成</th><th></th></tr></thead>
+          <tbody id="myexps"><tr><td colspan="5" class="empty">暂无实验</td></tr></tbody></table></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card flow-card">
+        <div class="card-h"><div class="ic">▶</div><div><b>论文复现流</b><div class="sub">用户上传论文 · 结构化调研 · 服务器执行</div></div></div>
+        <div class="bubble">先复现这篇论文的主实验，对齐官方配置和数据集。</div>
+        <div class="bubble">在调研卡里记录参数与指标，执行时逐项对齐。</div>
+        <div class="bubble">跑完用对照表判定：达到 / 接近 / 未达到。</div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="ic">🕐</div><b>最近打开</b></div>
+        <div id="recent-list"><div class="empty">暂无记录</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot-links">
+    <span><i></i>真实节点</span><span><i></i>真实目录</span><span><i></i>可审计实验日志</span><span><i></i>论文指标对照</span>
+  </div>
+</section>
+
+<!-- ================= 论文调研 ================= -->
+<section class="page" id="page-调研">
+  <div class="card" id="paper-empty">
+    <div class="card-h"><div class="ic">📄</div><div><b>论文调研</b><div class="sub">结构化抽取 · 缺失字段如实标注</div></div></div>
+    <div class="empty">还没有论文。回到「欢迎」页上传 PDF、粘贴 arXiv 链接或文本。</div>
+    <div style="text-align:center"><button class="pri" onclick="showPage('欢迎')">去上传论文</button></div>
+  </div>
+  <div id="paper-wrap" style="display:none">
+    <div class="card">
+      <div class="card-h"><div class="ic">📄</div><div><b id="paper-title">论文</b><div class="sub" id="paper-src"></div></div>
+        <div class="right">
+          <button class="sm" onclick="extractPaper(true)">重新解析</button>
+          <button class="sm" onclick="exportCard()">导出调研卡</button>
+          <button class="pri sm" onclick="showPage('执行')">进入执行 →</button>
+        </div></div>
+      <div id="paper-status" class="sub" style="color:var(--dim);font-size:12px"></div>
+    </div>
+    <div class="sec-grid" id="paper-cards" style="margin-top:16px"></div>
+  </div>
+</section>
+
+<!-- ================= 执行 ================= -->
+<section class="page" id="page-执行">
+  <div class="card">
+    <div class="card-h"><div class="ic">mdir</div><div><b>选择服务器工作目录</b><div class="sub">粘贴绝对路径并预检</div></div></div>
+    <div class="form-row" style="grid-template-columns:3fr auto">
+      <label class="f"><span>服务器目录</span>
+        <input id="x-dir" class="mono" placeholder="/home/niexin/ai_project/fed-multimodal-main/fed_multimodal"></label>
+      <div style="display:flex;align-items:flex-end"><button onclick="dirCheck()">预检目录</button></div>
+    </div>
+    <div id="dircheck-result"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="ic">⚙</div><div><b>实验配置</b><div class="sub">从调研卡带入，可修改</div></div></div>
+    <div class="form-row" style="grid-template-columns:2fr 1fr 1fr">
+      <label class="f"><span>入口命令（调研卡建议）</span>
+        <input id="x-cmd" class="mono" placeholder="bash run_xxx.sh 或 python -m ..."></label>
+      <label class="f"><span>GPU 卡号（逗号分隔，留空自动）</span>
+        <input id="x-gpus" class="mono" placeholder="如 2,5"></label>
+      <label class="f"><span>Run 名</span><input id="x-name" placeholder="run 名"></label>
+    </div>
+    <div class="form-row" style="grid-template-columns:1fr 1fr 1fr">
+      <label class="f"><span>环境（conda env）</span><input id="x-env" class="mono" value="fedmodel"></label>
+      <label class="f"><span>world size</span><input id="x-ws" class="mono" value="1"></label>
+      <label class="f"><span>覆盖超参</span><input id="x-extra" class="mono" placeholder="--key=value 空格分隔"></label>
+    </div>
+    <div id="preflight" class="roles"></div>
+    <div class="hero-actions"><button class="pri" onclick="launchRun()">启动实验</button></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><div class="ic">≡</div><div><b>任务队列</b><div class="sub" id="task-summary"></div></div>
+      <div class="right"><div class="roles adv-only" id="owner-filter" style="margin:0"></div></div></div>
+    <div class="form-row" style="grid-template-columns:1fr 2fr 84px 1fr 1.2fr auto">
+      <input id="f-name" placeholder="任务名">
+      <input id="f-cmd" class="mono" placeholder="命令 / 脚本">
+      <select id="f-gpus"><option value="1">1 卡</option><option value="2">2 卡</option><option value="3">3 卡</option><option value="4">4 卡</option><option value="8">8 卡</option></select>
+      <input id="f-pin" class="mono" placeholder="指定卡 如 2,5">
+      <input id="f-dir" class="mono" placeholder="工作目录(可选)">
+      <button class="pri" onclick="submitTask()">提交</button>
+    </div>
+    <textarea id="f-chain" rows="2" placeholder="任务链(可选)：每行一条命令，上一条成功才跑下一条；任一失败后续自动取消" style="margin-bottom:10px"></textarea>
+    <div style="overflow-x:auto;max-height:320px"><table><thead><tr>
+      <th>#</th><th>状态</th><th class="col-owner">归属</th><th>名称</th><th>命令</th><th>GPU</th><th>退出</th><th>操作</th></tr></thead>
+      <tbody id="task-body"><tr><td colspan="8" class="empty">无任务</td></tr></tbody></table></div>
+  </div>
+</section>
+
+<!-- ================= 日志 ================= -->
+<section class="page" id="page-日志">
+  <div class="logs-cols">
+    <div class="card">
+      <div class="card-h"><div class="ic">☰</div><b>Run 列表</b></div>
+      <div id="run-list"><div class="empty">暂无实验运行</div></div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-h"><div class="ic">📈</div><div><b>曲线</b><div class="sub" id="curve-sub">选择左侧 run</div></div>
+          <div class="right">
+            <select id="chart-mode" onchange="refreshChart()"><option value="">全部 epoch</option><option value="vl">vl 完整</option><option value="v">v 图像</option><option value="l">l 文本</option></select>
+            <select id="mon-interval" onchange="startMonTimer()" title="刷新间隔">
+              <option value="30" selected>30秒</option><option value="300">5分钟</option><option value="1800">30分钟</option><option value="3600">1小时</option></select>
+            <button class="sm" onclick="pickScore()">VQA得分对比</button>
+            <button class="sm" onclick="compareAll()">对比当前指标</button>
+          </div></div>
+        <div id="chart-wrap"><canvas id="chart"></canvas></div>
+      </div>
+      <div class="card" id="arch-card" style="display:none">
+        <div class="card-h"><div class="ic">⬡</div><div><b>实验架构</b><div class="sub">点击损失节点查看曲线 · 虚线 = control 共有路径</div></div></div>
+        <div style="padding:0 10px">
+        <svg id="arch-svg" viewBox="0 0 880 300" style="width:100%;user-select:none">
+          <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0L10,5L0,10z" fill="#B4B9C0"/></marker></defs>
+          <g class="anode" transform="translate(15,20)"><rect width="105" height="40"/><text x="52" y="18" class="at">图像特征 h_v</text><text x="52" y="32" class="as">image</text></g>
+          <g class="anode" transform="translate(15,90)"><rect width="105" height="40"/><text x="52" y="18" class="at">全局原型 P_f</text><text x="52" y="32" class="as">prototype</text></g>
+          <g class="anode" transform="translate(15,160)"><rect width="105" height="40"/><text x="52" y="18" class="at">文本特征 h_l</text><text x="52" y="32" class="as">text</text></g>
+          <g class="anode key" transform="translate(180,60)"><rect width="130" height="48"/><text x="65" y="20" class="at">DDIM i2t 生成器 θ</text><text x="65" y="35" class="as">guided 独有 · 可微</text></g>
+          <g class="anode" transform="translate(180,165)"><rect width="130" height="40"/><text x="65" y="18" class="at">DDIM 直通(冻结)</text><text x="65" y="32" class="as">control 同结构</text></g>
+          <g class="anode" transform="translate(370,60)"><rect width="100" height="40"/><text x="50" y="18" class="at">ĥ_l 生成文本</text><text x="50" y="32" class="as">3-step DDIM</text></g>
+          <g class="anode" transform="translate(370,140)"><rect width="100" height="40"/><text x="50" y="18" class="at">Fusion 融合</text><text x="50" y="32" class="as">+ proto 对比</text></g>
+          <g class="anode" transform="translate(540,140)"><rect width="90" height="40"/><text x="50" y="18" class="at">VQA Head</text><text x="50" y="32" class="as">BCE × C=310</text></g>
+          <line x1="120" y1="40" x2="180" y2="80" class="aarr" marker-end="url(#arr)"/>
+          <line x1="120" y1="110" x2="180" y2="95" class="aarr" marker-end="url(#arr)"/>
+          <line x1="120" y1="45" x2="180" y2="180" class="aarr dim" marker-end="url(#arr)"/>
+          <line x1="120" y1="180" x2="180" y2="188" class="aarr dim" marker-end="url(#arr)"/>
+          <line x1="310" y1="84" x2="370" y2="80" class="aarr" marker-end="url(#arr)"/>
+          <line x1="310" y1="185" x2="370" y2="160" class="aarr dim" marker-end="url(#arr)"/>
+          <line x1="470" y1="80" x2="530" y2="145" class="aarr" marker-end="url(#arr)"/>
+          <line x1="470" y1="160" x2="540" y2="160" class="aarr" marker-end="url(#arr)"/>
+          <line x1="630" y1="160" x2="680" y2="160" class="aarr" marker-end="url(#arr)"/>
+          <g class="lnode" transform="translate(680,142)" onclick="archPick('diff_noise','vl')"><title>DDPM 噪声预测损失</title><rect width="120" height="36"/><text x="60" y="16" class="lt">diff_noise</text><text x="60" y="29" class="ls">ε 预测 MSE</text></g>
+          <g class="lnode" transform="translate(680,186)" onclick="archPick('task','vl')"><title>完整模态 VQA loss → Table 1</title><rect width="120" height="36"/><text x="60" y="16" class="lt">task ⌜vl⌟</text><text x="60" y="29" class="ls">→ Table 1</text></g>
+          <g class="lnode" transform="translate(680,230)" onclick="archPick('task','v')"><title>image-only VQA loss → Table 3</title><rect width="120" height="36"/><text x="60" y="16" class="lt">task ⌜v⌟</text><text x="60" y="29" class="ls">→ Table 3 (v)</text></g>
+          <g class="lnode" transform="translate(180,130)" onclick="archPick('diff_condition_recon','vl')"><title>条件重建</title><rect width="130" height="26"/><text x="65" y="17" class="lt">cond_recon</text></g>
+          <g class="lnode" transform="translate(330,10)" onclick="archPick('diff_condition_contrast','vl')"><title>条件对比 m=.05</title><rect width="150" height="26"/><text x="75" y="17" class="lt">cond_contrast m=.05</text></g>
+          <g class="lnode" transform="translate(330,112)" onclick="archPick('gen_answer_i2t','vl')"><title>answer-aware ×0.02</title><rect width="140" height="26"/><text x="70" y="17" class="lt">gen_answer ×0.02</text></g>
+          <g class="lnode" transform="translate(15,230)" onclick="archPick('task','l')"><title>text-only</title><rect width="120" height="36"/><text x="60" y="16" class="lt">task ⌜l⌟</text><text x="60" y="29" class="ls">text-only</text></g>
+          <g class="lnode" transform="translate(180,230)" onclick="archPick('generator_i2t_grad_norm',null)"><title>梯度路径健康</title><rect width="170" height="36"/><text x="85" y="16" class="lt">gen_i2t_grad_norm</text><text x="85" y="29" class="ls">control=0 / guided&gt;0</text></g>
+        </svg></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="ic">▤</div><div><b>最新日志</b><div class="sub" id="log-meta">选择 run 查看</div></div>
+          <div class="right"><button class="sm" id="log-stop" style="display:none" onclick="stopSelRun()">停跑</button>
+          <button class="pri sm" onclick="showPage('对照')">进入对照 →</button></div></div>
+        <div class="log-box" id="log-box">—</div>
+      </div>
+      <div class="card">
+        <div class="card-h"><div class="ic">📅</div><div><b>每周动态</b><div class="sub" id="act-wk"></div></div></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <button class="sm" onclick="calMove(-1)">‹</button><b id="cal-title"></b>
+          <span style="display:flex;gap:6px"><button class="sm" onclick="calToday()">今天</button><button class="sm" onclick="calMove(1)">›</button></span>
+        </div>
+        <div id="cal-grid" class="cal-grid"></div>
+        <div id="cal-day" style="margin-top:10px"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 对照 ================= -->
+<section class="page" id="page-对照">
+  <div class="card" id="cmp-empty">
+    <div class="card-h"><div class="ic">⚖</div><div><b>复现对照</b><div class="sub">论文声称指标 × 本次 run 最优值</div></div></div>
+    <div class="empty">还没有可对照的 run。先在「执行」页启动实验，或选择一个已完成的 run。</div>
+    <div style="text-align:center"><button class="pri" onclick="showPage('执行')">去启动实验</button></div>
+  </div>
+  <div id="cmp-wrap" style="display:none">
+    <div class="card">
+      <div class="card-h"><div class="ic">⚖</div><div><b>指标对照</b><div class="sub" id="cmp-sub"></div></div>
+        <div class="right"><select id="cmp-run" onchange="renderCompare()"></select></div></div>
+      <div style="overflow-x:auto"><table><thead><tr>
+        <th>指标</th><th>论文声称 (表/节)</th><th>本次最优</th><th>差值</th><th>相对误差</th><th>判定</th></tr></thead>
+        <tbody id="cmp-body"></tbody></table></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><div class="ic">✓</div><div><b>结论</b></div>
+        <div class="right"><button class="sm" onclick="exportReport()">导出复现报告 (Markdown)</button></div></div>
+      <div id="cmp-conclusion"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 设置 ================= -->
+<section class="page" id="page-设置">
+  <div class="card adv-only">
+    <div class="card-h"><div class="ic">👥</div><div><b>用户管理</b><div class="sub">导师专属 · 重置密码后该用户所有会话立即失效</div></div></div>
+    <div style="overflow-x:auto"><table><thead><tr>
+      <th>用户名</th><th>角色</th><th>重置密码</th><th></th></tr></thead>
+      <tbody id="users-body"><tr><td colspan="4" class="empty">加载中…</td></tr></tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><div class="ic">🛠</div><div><b>实验室设置</b><div class="sub">节点 · 目录 · 监视 · 运行 · 对照 · 通知</div></div>
+      <div class="right"><button class="pri sm" onclick="saveSettings()">保存设置</button></div></div>
+    <div class="sec-grid">
+      <div>
+        <h4 style="font-size:13px;margin-bottom:8px">节点</h4>
+        <div class="form-row">
+          <label class="f"><span>默认 GPU 卡数</span><input id="s-gpus" class="mono" value="1"></label>
+          <label class="f"><span>可见 GPU（逗号分隔，空=全部）</span><input id="s-visible" class="mono" placeholder="0,1,2,3,4,5,6,7"></label>
+        </div>
+        <h4 style="font-size:13px;margin:14px 0 8px">目录</h4>
+        <div class="form-row">
+          <label class="f"><span>默认代码根</span><input id="s-coderoot" class="mono" value="/home/niexin/ai_project/fed-multimodal-main/fed_multimodal"></label>
+          <label class="f"><span>数据根</span><input id="s-dataroot" class="mono" placeholder="/data/..."></label>
+          <label class="f"><span>输出根</span><input id="s-outroot" class="mono" placeholder="output/"></label>
+        </div>
+        <h4 style="font-size:13px;margin:14px 0 8px">对照阈值</h4>
+        <div class="form-row" style="grid-template-columns:1fr 1fr">
+          <label class="f"><span>达到（相对误差 ≤ %）</span><input id="s-reached" class="mono" value="5"></label>
+          <label class="f"><span>接近（相对误差 ≤ %）</span><input id="s-near" class="mono" value="15"></label>
+        </div>
+      </div>
+      <div>
+        <h4 style="font-size:13px;margin-bottom:8px">运行</h4>
+        <div class="form-row">
+          <label class="f"><span>默认环境（conda env）</span><input id="s-env" class="mono" value="fedmodel"></label>
+          <label class="f"><span>环境变量（API key 等，保存后掩码显示）</span><input id="s-envvars" class="mono" placeholder="KEY=value"></label>
+        </div>
+        <h4 style="font-size:13px;margin:14px 0 8px">监视</h4>
+        <label class="check"><input type="checkbox" id="s-welcome-refresh" checked>欢迎页也随刷新间隔更新</label>
+        <h4 style="font-size:13px;margin:14px 0 8px">通知</h4>
+        <label class="check"><input type="checkbox" id="s-notify-run" checked>run 结束时通知</label>
+        <label class="check" style="margin-top:6px"><input type="checkbox" id="s-notify-node" checked>节点异常时通知</label>
+        <h4 style="font-size:13px;margin:14px 0 8px">权限</h4>
+        <div class="form-row">
+          <label class="f"><span>可看节点者</span><input id="s-perm-view" value="仅自己"></label>
+          <label class="f"><span>可在目录启动者</span><input id="s-perm-run" value="仅自己"></label>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AI 悬浮球 -->
+<button id="fab" onclick="toggleAI()">✦<span class="fdot"></span></button>
+<div id="ai-panel">
+  <div class="card-h" style="padding:12px 14px"><div class="ic">✦</div><div><b>AI 助手</b><div class="sub">带 GPU / 实验上下文</div></div>
+    <div class="right"><button class="sm ghost" onclick="clearChat()">清空</button>
+    <button class="sm ghost" onclick="toggleAI()">✕</button></div></div>
+  <div id="ai-msgs"><div class="empty">对话历史存于浏览器本地</div></div>
+  <div id="ai-ctrl">
+    <label class="check"><input type="checkbox" id="c-gpu" checked>附 GPU 状态</label>
+    <label class="check">分析实验 <select id="c-exp" style="width:auto;padding:2px 6px"><option value="">—</option></select></label>
+  </div>
+  <div id="ai-input-row">
+    <input id="chat-in" placeholder="问点什么… (Enter 发送)" onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="pri" onclick="sendChat()">发送</button>
+  </div>
+</div>
+
+<div id="modal"><div id="modal-box">
+  <div id="modal-head"><span id="modal-title">LOG</span><span id="modal-meta"></span>
+    <button class="sm danger" onclick="closeLog()">关闭</button></div>
+  <div id="modal-log"></div>
+</div></div>
+
+<script src="/static/app.js?v=33"></script>
+</body>
+</html>

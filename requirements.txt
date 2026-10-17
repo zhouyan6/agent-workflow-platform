@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+websockets
+tzdata
+httpx
+pypdf
+pdfplumber
+rapidocr-onnxruntime
+pillow
+python-multipart

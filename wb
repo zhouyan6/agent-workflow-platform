@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# wb — GPU workbench CLI for Claude Code / terminal.
+# Usage: wb gpu | tasks | submit N "cmd" [workdir] | log ID | stop ID | cancel ID | exp | chat "msg"
+set -euo pipefail
+WB_URL="${WB_URL:-http://127.0.0.1:8787}"
+cmd="${1:-help}"; shift || true
+
+case "$cmd" in
+  gpu)    curl -sf "$WB_URL/api/gpu" | python3 -m json.tool ;;
+  tasks)  curl -sf "$WB_URL/api/tasks" | python3 -m json.tool ;;
+  submit)
+    # wb submit <gpus_needed> <command> [name] [workdir]
+    gpus="$1"; command="$2"; name="${3:-cli-task}"; dir="${4:-}"
+    curl -sf -X POST "$WB_URL/api/tasks" -H 'Content-Type: application/json' \
+      -d "$(python3 -c "import json,sys;print(json.dumps({'name':sys.argv[1],'command':sys.argv[2],'gpus_needed':int(sys.argv[3]),'workdir':sys.argv[4] or None}))" "$name" "$command" "$gpus" "$dir")" \
+      | python3 -m json.tool ;;
+  log)    curl -sf "$WB_URL/api/tasks/$1/log" ;;
+  stop)   curl -sf -X POST "$WB_URL/api/tasks/$1/stop" ;;
+  cancel) curl -sf -X POST "$WB_URL/api/tasks/$1/cancel" ;;
+  exp)    curl -sf "$WB_URL/api/experiments" | python3 -m json.tool ;;
+  series) curl -sf "$WB_URL/api/experiments/$1/series" | python3 -m json.tool ;;
+  chat)
+    msg="$1"
+    curl -sf -X POST "$WB_URL/api/chat" -H 'Content-Type: application/json' \
+      -d "$(python3 -c "import json,sys;print(json.dumps({'messages':[{'role':'user','content':sys.argv[1]}],'include_gpu':True}))" "$msg")" \
+      | python3 -c "import json,sys;print(json.load(sys.stdin)['reply'])" ;;
+  *)
+    cat <<'EOF'
+wb — GPU workbench CLI
+  wb gpu                     show GPU status
+  wb tasks                   list tasks
+  wb submit N "cmd" [name] [workdir]   queue a task needing N GPUs
+  wb log ID                  tail task log (JSON)
+  wb stop ID                 kill running task
+  wb cancel ID               cancel pending task
+  wb exp                     list experiments
+  wb series EXP_ID           get experiment metric series
+  wb chat "message"          ask AI (with GPU context)
+env: WB_URL (default http://127.0.0.1:8787)
+EOF
+    ;;
+esac

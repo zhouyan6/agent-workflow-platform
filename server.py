@@ -1994,6 +1994,10 @@ mount_agent(
     ctx_factory=_agent_ctx,
 )
 
+from bridge.routes import mount_pi
+
+mount_pi(app, ROOT, resolve_token)
+
 
 # ---------------- frontend ----------------
 app.mount("/static", StaticFiles(directory=os.path.join(ROOT, "static")), name="static")

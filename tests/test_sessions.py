@@ -1,25 +1,24 @@
 # tests/test_sessions.py
 import json
 import os
-import time
 
 from bridge.sessions import PiSessionManager
 
 
-def test_find_session_file_picks_newest_match(tmp_path):
-    old = tmp_path / "convA-2026-10-01.jsonl"
-    new = tmp_path / "convA-2026-10-16.jsonl"
-    other = tmp_path / "convB-2026-10-16.jsonl"
-    for f in (old, new, other):
-        f.write_text("{}")
-    back = time.time() - 10000
-    os.utime(old, (back, back))
-    assert PiSessionManager.find_session_file(str(tmp_path), "convA") == str(new)
+def test_resume_path_from_index(tmp_path):
+    m = PiSessionManager(str(tmp_path))
+    sess = tmp_path / "pi-sessions"
+    f = sess / "2026-10-17T00-00-00-000Z_uuid.jsonl"
+    f.write_text("{}")
+    m._save_index({"convA": str(f)})
+    assert m._resume_path("convA") == str(f)
 
 
-def test_find_session_file_none(tmp_path):
-    assert PiSessionManager.find_session_file(str(tmp_path), "nope") is None
-    assert PiSessionManager.find_session_file(str(tmp_path / "missing"), "x") is None
+def test_resume_path_missing_file_or_entry(tmp_path):
+    m = PiSessionManager(str(tmp_path))
+    assert m._resume_path("nope") is None
+    m._save_index({"convA": str(tmp_path / "pi-sessions" / "gone.jsonl")})
+    assert m._resume_path("convA") is None
 
 
 def test_zhipu_env_reads_config(tmp_path):
@@ -39,5 +38,10 @@ def test_spawn_args():
     args = m._spawn_args("conv1")
     assert args[:2] == ["--mode", "rpc"]
     assert "--session-dir" in args
-    i = args.index("-n")
-    assert args[i + 1] == "conv1"
+    # 不传 provider/model 时 Pi 连默认 Anthropic（403）
+    i = args.index("--provider")
+    assert args[i + 1] == "zhipu"
+    j = args.index("--model")
+    assert args[j + 1] == "glm-4.7"
+    k = args.index("-n")
+    assert args[k + 1] == "conv1"

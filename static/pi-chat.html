@@ -35,6 +35,9 @@
   <button onclick="connect()">连接</button>
   <button onclick="abortTurn()">中断</button>
 </header>
+<div id="plan" style="display:none; margin:8px 16px; padding:8px 12px;
+     background:#fff8e1; border:1px solid #ffe082; border-radius:8px;
+     font-size:13px;"></div>
 <div id="log"></div>
 <footer>
   <textarea id="input" placeholder="输入消息，Ctrl+Enter 发送"></textarea>
@@ -90,6 +93,8 @@ function handle(m) {
     $("c-title").textContent = m.request.title;
     $("c-msg").textContent = m.request.message;
     $("confirm").style.display = "block";
+  } else if (m.type === "plan_update") {
+    renderPlan(m.steps);
   } else if (m.type === "error") {
     addDiv("err", m.message);
   }
@@ -117,6 +122,16 @@ function answerConfirm(ok) {
 $("input").addEventListener("keydown", e => {
   if (e.key === "Enter" && e.ctrlKey) { e.preventDefault(); send(); }
 });
+
+function renderPlan(steps) {
+  const el = $("plan");
+  if (!steps.length) { el.style.display = "none"; return; }
+  el.style.display = "block";
+  const icon = { pending: "◻", in_progress: "◐", done: "✓" };
+  el.innerHTML = "<b>任务计划</b><br>" + steps.map(s =>
+    `${icon[s.status] || "◻"} ${s.status === "done" ? "<s>" : ""}${s.title}${s.status === "done" ? "</s>" : ""}`
+  ).join("<br>");
+}
 </script>
 </body>
 </html>

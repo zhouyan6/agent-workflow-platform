@@ -207,3 +207,19 @@ stop(task) -> ok
 | GLM 长工具循环稳定性 | 确认门禁拦截危险操作；auto-retry；每回合轮数靠 Pi 内置管理 |
 | Windows SSH 免密配置摩擦 | 一次性手动配置，文档化；失败时工具报错指路 |
 | 裸机任务状态跟踪弱于工作台队列 | pid 登记表 + 日志 mtime 兜底；建议主力训练尽量用装工作台的服务器 |
+
+## 9. 前端重构：AgentOps 形态（2026-10-18 追加，用户拍板）
+
+决策记录：**彻底替换** 7 导航页（旧 index.html/app.js 删除，REST API 全保留供工具与 wb CLI 使用）；**全部对话化**（设置留齿轮弹窗）；**Vue 3 无构建**（vendor 到 static/vendor/，不依赖运行时 CDN）；机器管理面板本期只显示「本地」，第 3 期 servers.json 接上即活。
+
+布局：左栏（新建会话/会话列表/机器面板/登出）+ 顶栏（会话名/设置齿轮）+ 对话流（用户气泡、AI 卡片：思考折叠/Markdown/工具卡/Gate 审核卡，footer 复制·耗时·tokens）+ 底部输入（多行、拖 PDF、Enter 发送）。
+
+桥新增支撑 API：`GET /api/pi/convs`（列表+标题）、`DELETE /api/pi/convs/{id}`；WS 连接后历史回放（Pi get_messages → history 消息流）；会话标题取首条用户消息截断。工具新增 `ccf_lookup`（查 ccf.json：r/t/a/s/f/p/u 七字段 644 条）；PDF 拖拽 → 现有 /api/papers 上传抽取 → 消息带 paper_id 接力。
+
+## 10. Run 工作流模型（2026-10-18 追加，用户拍板）
+
+决策记录：**里程碑式 Run 而非固定 DAG**；阶段序列由**智能体生成**（每个 Run 开始时按目标分解），人只在 Gate 处审核/修改；与前端重构**同期交付**。
+
+- Run = 目标 + 阶段序列 + 当前阶段 + 产出链接；持久化为 ROOT/runs.json；工具 `run_create` / `run_update` 维护；事件 `run_update` 推送到对话，前端渲染为对话区顶部工作流条（○◐✓⏸）
+- Gate 分级：**强制审核**（提交训练/停任务/git push——复用第 2 期确认门禁，不可关）；**默认审核**（创新点方向、实验方案——可配置关闭）；**免审**（读操作、汇报）
+- 异步监控：桥定时器只读轮询 workbench.db 的 tasks 表状态变化，任务结束/失败时向所属会话注入 `agent_event` 并以 followUp prompt 唤醒智能体分析汇报（log_diagnose 现成）；飞书推送延后到第 3 期与执行器一起做

@@ -30,6 +30,7 @@ async function callBridge(name: string, args: Record<string, unknown>) {
     method: "POST",
     headers: { "content-type": "application/json", "x-bridge-token": cfg.token },
     body: JSON.stringify({ args, conv: cfg.conv }),
+    signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`bridge ${name} HTTP ${res.status}`);
   const data = (await res.json()) as { result: string };
@@ -49,6 +50,7 @@ export default async function (pi: ExtensionAPI) {
   try {
     const res = await fetch(`${cfg.url}/api/pi/tools/schema`, {
       headers: { "x-bridge-token": cfg.token },
+      signal: AbortSignal.timeout(10_000),
     });
     if (res.ok) {
       const data = (await res.json()) as { tools: { function: FnDef }[] };

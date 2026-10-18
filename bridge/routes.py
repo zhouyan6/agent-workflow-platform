@@ -72,6 +72,14 @@ async def delete_conv(conv_id: str, request: Request, wb_session: str = ""):
     return {"ok": manager.delete_conv(conv_id)}
 
 
+@router.get("/api/pi/runs")
+def get_runs(conv: str = "", wb_session: str = ""):
+    _ws_user_cookie(wb_session)
+    from .runs import Runs
+    runs = Runs(manager.root)
+    return {"runs": runs.for_conv(conv) if conv else []}
+
+
 @router.websocket("/api/pi/ws")
 async def pi_ws(ws: WebSocket):
     await ws.accept()

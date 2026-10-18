@@ -63,3 +63,10 @@ def test_bridge_plan_to_plan_update():
     ev = {"type": "_bridge_plan", "steps": [{"title": "s", "status": "done"}]}
     assert translate_event(ev) == [
         {"type": "plan_update", "steps": [{"title": "s", "status": "done"}]}]
+
+
+def test_bridge_run_to_run_update():
+    run = {"id": "r1", "conv": "c", "goal": "g",
+           "stages": [{"title": "s", "status": "pending"}], "updated": "x"}
+    assert translate_event({"type": "_bridge_run", "run": run}) == [
+        {"type": "run_update", "run": run}]

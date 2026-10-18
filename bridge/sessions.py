@@ -176,3 +176,8 @@ class PiSessionManager:
         if client and client.process.alive:
             await client.stream_events.put(
                 {"type": "_bridge_plan", "steps": steps})
+
+    async def push_run(self, conv_id: str, run: dict) -> None:
+        client = self._clients.get(conv_id)
+        if client and client.process.alive:
+            await client.stream_events.put({"type": "_bridge_run", "run": run})

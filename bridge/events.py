@@ -34,6 +34,8 @@ def translate_event(ev: dict) -> list[dict]:
                  "request": _dialog(ev)}]
     if t == "_bridge_plan":
         return [{"type": "plan_update", "steps": ev.get("steps") or []}]
+    if t == "_bridge_run":
+        return [{"type": "run_update", "run": ev.get("run") or {}}]
     if t == "_process_exit":
         return [{"type": "error", "message": "Pi 引擎进程退出"}]
     return []

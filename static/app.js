@@ -131,7 +131,11 @@ const App = {
         }
         this.curAi.text += m.delta;
       } else if (m.type === "thinking") {
-        if (this.curAi) { this.curAi.think += m.delta; this.curAi.showThink = false; }
+        if (!this.curAi) {
+          this.curAi = { role: "assistant", text: "", think: "", showThink: false };
+          this.msgs.push(this.curAi);
+        }
+        this.curAi.think += m.delta;
       } else if (m.type === "tool_start") {
         this.msgs.push({ role: "assistant", text: `⚙ 调用工具 ${m.tool} …`, think: "" });
       } else if (m.type === "tool_end") {

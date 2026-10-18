@@ -56,3 +56,14 @@ body { margin: 0; font-family: system-ui, "Segoe UI", sans-serif; background: #f
 .modal label { display: block; font-size: 12px; color: #666; margin-top: 10px; }
 .modal input { width: 100%; padding: 6px; border: 1px solid #d6d9e6; border-radius: 6px; }
 .modal button { margin-top: 14px; padding: 6px 16px; cursor: pointer; }
+.login-mask { position: fixed; inset: 0; background: #f5f6fa;
+              display: flex; align-items: center; justify-content: center; }
+.login { background: #fff; border: 1px solid #e3e6ef; border-radius: 10px;
+         padding: 24px; width: 320px; }
+.login h3 { margin: 0 0 12px; }
+.login label { display: block; font-size: 12px; color: #666; margin-top: 10px; }
+.login input { width: 100%; padding: 8px; border: 1px solid #d6d9e6; border-radius: 6px; }
+.login button { margin-top: 14px; width: 100%; padding: 8px; background: #3b82f6;
+                color: #fff; border: 0; border-radius: 6px; cursor: pointer; }
+.login button:disabled { opacity: .6; cursor: default; }
+.login-err { color: #b91c1c; font-size: 12px; margin-top: 8px; word-break: break-all; }

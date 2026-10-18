@@ -35,10 +35,56 @@ class ToolCall(BaseModel):
     conv: str = "default"
 
 
+# 桥生工具（不经 agent.tools.dispatch），schema 与业务都在这里，
+# 扩展统一从 /api/pi/tools/schema 拉取注册（单一事实来源）。
+BRIDGE_TOOLS = [
+    {"type": "function", "function": {
+        "name": "run_create",
+        "description": "为当前目标创建一个 Run 工作流（阶段序列），网页顶部渲染为进度条。开始多步科研任务时先调用。",
+        "parameters": {"type": "object", "properties": {
+            "goal": {"type": "string"},
+            "stages": {"type": "array", "items": {"type": "object",
+                         "properties": {"title": {"type": "string"}},
+                         "required": ["title"]}},
+        }, "required": ["goal", "stages"]},
+    }},
+    {"type": "function", "function": {
+        "name": "run_update",
+        "description": "更新 Run 各阶段的状态（pending/in_progress/done/blocked）。每完成一步就更新。",
+        "parameters": {"type": "object", "properties": {
+            "run_id": {"type": "string"},
+            "stages": {"type": "array", "items": {"type": "object",
+                         "properties": {"title": {"type": "string"},
+                                        "status": {"type": "string",
+                                                   "enum": ["pending", "in_progress", "done", "blocked"]}},
+                         "required": ["title", "status"]}},
+        }, "required": ["run_id", "stages"]},
+    }},
+    {"type": "function", "function": {
+        "name": "ccf_lookup",
+        "description": "查询 CCF 推荐目录（期刊/会议等级 A/B/C）。query 可用期刊/会议名、缩写、领域或等级。",
+        "parameters": {"type": "object", "properties": {
+            "query": {"type": "string"},
+        }, "required": ["query"]},
+    }},
+    {"type": "function", "function": {
+        "name": "update_plan",
+        "description": "更新当前任务的计划/待办清单（网页端渲染为进度卡）。开始多步任务时先建计划；每完成一步把对应 step 的 status 改为 done；正在做的改为 in_progress。",
+        "parameters": {"type": "object", "properties": {
+            "steps": {"type": "array", "items": {"type": "object",
+                         "properties": {"title": {"type": "string"},
+                                        "status": {"type": "string",
+                                                   "enum": ["pending", "in_progress", "done"]}},
+                         "required": ["title", "status"]}},
+        }, "required": ["steps"]},
+    }},
+]
+
+
 @router.get("/api/pi/tools/schema")
 def tools_schema(x_bridge_token: str = Header(default="")):
     _check(x_bridge_token)
-    return {"tools": agent_tools.openai_tools()}
+    return {"tools": agent_tools.openai_tools() + BRIDGE_TOOLS}
 
 
 @router.post("/api/pi/tools/{name}")

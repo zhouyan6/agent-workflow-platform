@@ -79,40 +79,8 @@ export default async function (pi: ExtensionAPI) {
     });
   }
 
-  // 2) update_plan：维护计划进度卡
-  pi.registerTool({
-    name: "update_plan",
-    label: "Update plan",
-    description:
-      "更新当前任务的计划/待办清单（网页端渲染为进度卡）。开始多步任务时先建计划；每完成一步把对应 step 的 status 改为 done；正在做的改为 in_progress。",
-    promptSnippet:
-      "update_plan: 多步任务开始前建立计划，之后随进度更新 step 状态（pending/in_progress/done）。",
-    parameters: {
-      type: "object",
-      properties: {
-        steps: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              title: { type: "string" },
-              status: { type: "string", enum: ["pending", "in_progress", "done"] },
-            },
-            required: ["title", "status"],
-          },
-        },
-      },
-      required: ["steps"],
-    } as never,
-    async execute(_toolCallId, args) {
-      try {
-        await callBridge("update_plan", (args || {}) as Record<string, unknown>);
-        return resultOf("计划已更新", false);
-      } catch (e) {
-        return resultOf(`update_plan 失败: ${e}`, true);
-      }
-    },
-  });
+  // 2) update_plan/run_create/run_update/ccf_lookup 等桥生工具的 schema
+  //    现在统一由 /api/pi/tools/schema 下发（BRIDGE_TOOLS），此处不再静态注册。
 
   // 3) 确认门禁：危险工具/命令先经网页弹窗
   pi.on("tool_call", async (event, ctx) => {

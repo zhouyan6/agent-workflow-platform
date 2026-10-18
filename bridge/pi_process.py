@@ -84,5 +84,14 @@ class PiProcess:
     async def stop(self) -> None:
         if self.alive:
             assert self.proc
-            self.proc.terminate()
+            if os.name == "nt":
+                # terminate() 只杀 pi.cmd 外壳，node 子进程会存活并占住 stdout
+                # 管道导致 wait()/close() 挂住——必须整树杀掉
+                killer = await asyncio.create_subprocess_exec(
+                    "taskkill", "/PID", str(self.proc.pid), "/T", "/F",
+                    stdout=asyncio.subprocess.DEVNULL,
+                    stderr=asyncio.subprocess.DEVNULL)
+                await killer.wait()
+            else:
+                self.proc.terminate()
             await self.proc.wait()

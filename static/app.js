@@ -8,10 +8,24 @@ const App = {
       status: "未连接", streaming: false, curAi: null, curThink: null,
       run: null, gate: null, drag: false,
       settingsOpen: false, settings: {}, chatCfg: {}, busy: false,
+      needLogin: false, loginForm: { username: "", password: "" },
+      loginBusy: false, loginErr: "",
     };
   },
   template: `
   <div>
+    <div v-if="needLogin" class="login-mask">
+      <div class="login">
+        <h3>科研智能体 · 登录</h3>
+        <label>用户名</label>
+        <input v-model="loginForm.username" @keydown.enter="doLogin">
+        <label>密码</label>
+        <input type="password" v-model="loginForm.password" @keydown.enter="doLogin">
+        <div v-if="loginErr" class="login-err">{{ loginErr }}</div>
+        <button :disabled="loginBusy" @click="doLogin">{{ loginBusy ? "登录中…" : "登录" }}</button>
+      </div>
+    </div>
+    <template v-else>
     <aside class="sidebar">
       <div class="brand">科研智能体</div>
       <button class="new" @click="newConv">+ 新建会话</button>
@@ -68,6 +82,7 @@ const App = {
         </div>
       </div>
     </main>
+    </template>
   </div>`,
   computed: {
     currentTitle() {
@@ -77,13 +92,24 @@ const App = {
   },
   async mounted() {
     const r = await fetch("/api/me", { credentials: "include" });
-    if (!r.ok) { location.href = "/login"; return; }
+    if (!r.ok) { this.needLogin = true; return; }
     this.me = await r.json();
     await this.loadConvs();
     if (this.convs.length) this.openConv(this.convs[0].id);
     else this.newConv();
   },
   methods: {
+    async doLogin() {
+      if (this.loginBusy) return;
+      this.loginBusy = true; this.loginErr = "";
+      const r = await fetch("/api/login", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify(this.loginForm), credentials: "include",
+      });
+      this.loginBusy = false;
+      if (!r.ok) { this.loginErr = "登录失败：" + (await r.text()).slice(0, 120); return; }
+      location.reload();
+    },
     async loadConvs() {
       const r = await fetch("/api/pi/convs", { credentials: "include" });
       if (r.ok) this.convs = (await r.json()).convs;

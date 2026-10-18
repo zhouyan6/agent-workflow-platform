@@ -107,7 +107,11 @@ async def pi_ws(ws: WebSocket):
     client = await manager.get(conv, user)
     try:
         data = await client.command({"type": "get_messages"})
-        entries = _history_entries(data.get("data") or [])
+        payload = data.get("data") or {}
+        # 实测 Pi 1.3.0 返回 {"messages": [...]}，兼容裸数组
+        messages = (payload.get("messages") if isinstance(payload, dict)
+                    else payload) or []
+        entries = _history_entries(messages)
         await ws.send_text(json.dumps(
             {"type": "history", "entries": entries}, ensure_ascii=False))
     except Exception:

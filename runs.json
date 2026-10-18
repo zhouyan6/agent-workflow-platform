@@ -1,0 +1,16 @@
+{
+ "runs": [
+  {
+   "id": "2fbc3cb1",
+   "conv": "ui-e2e-f3",
+   "goal": "测试",
+   "stages": [
+    {
+     "title": "步骤一",
+     "status": "pending"
+    }
+   ],
+   "updated": "2026-10-18T14:23:40"
+  }
+ ]
+}

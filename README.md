@@ -10,6 +10,8 @@
 - 测试：`.venv-win/Scripts/python -m pytest tests/ -v`
 - LLM 密钥：读 `config.json` 的 `api_key`，经 `ZHIPU_API_KEY` 环境变量注入 Pi
 - Pi provider 配置：`~/.pi/agent/models.json`（zhipu，openai-completions，thinkingFormat zai）
+- Pi 扩展：改 `pi-extension/research/index.ts` 后需重新拷贝到
+  `C:\Users\ZhouYan\.pi\agent\extensions\research\index.ts` 并重连会话生效
 
 ### 桥架构（bridge/）
 

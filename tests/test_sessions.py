@@ -89,3 +89,52 @@ def test_user_for_and_pi_env():
     assert tmp["PI_CONV"] == "c1"
     assert tmp["PI_BRIDGE_TOKEN"] == "tok"
     assert tmp["PI_BRIDGE_URL"] == "http://127.0.0.1:8787"
+
+
+def test_index_upgrade_and_list(tmp_path):
+    import json as _json
+    from bridge.sessions import PiSessionManager
+    m = PiSessionManager(str(tmp_path))
+    old = tmp_path / "pi-sessions" / "s1.jsonl"
+    old.write_text("{}")
+    m._save_index({"old-conv": str(old),                     # 旧格式：纯字符串
+                   "new-conv": {"path": str(old), "title": "复现X", "updated": "2026-10-18T01:00:00"}})
+    convs = m.list_convs()
+    ids = {c["id"] for c in convs}
+    assert ids == {"old-conv", "new-conv"}
+    by_id = {c["id"]: c for c in convs}
+    assert by_id["old-conv"]["title"] == "old-conv"          # 旧值回退
+    assert by_id["new-conv"]["title"] == "复现X"
+
+
+def test_list_convs_sorted_by_updated(tmp_path):
+    from bridge.sessions import PiSessionManager
+    m = PiSessionManager(str(tmp_path))
+    m._save_index({"a": {"path": "x", "title": "a", "updated": "1"},
+                   "b": {"path": "x", "title": "b", "updated": "2"}})
+    assert [c["id"] for c in m.list_convs()] == ["b", "a"]
+
+
+def test_delete_conv_removes_everything(tmp_path):
+    import asyncio
+    from bridge.sessions import PiSessionManager
+    m = PiSessionManager(str(tmp_path))
+    f = tmp_path / "pi-sessions" / "c1.jsonl"
+    f.write_text("{}")
+    m._save_index({"c1": {"path": str(f), "title": "t", "updated": "1"}})
+    assert m.delete_conv("c1") is True
+    assert not f.exists()
+    assert "c1" not in m._load_index()
+    assert m.delete_conv("ghost") is False
+
+
+def test_maybe_set_title(tmp_path):
+    from bridge.sessions import PiSessionManager
+    m = PiSessionManager(str(tmp_path))
+    f = tmp_path / "pi-sessions" / "c1.jsonl"
+    f.write_text("{}")
+    m._save_index({"c1": {"path": str(f), "title": "c1", "updated": "1"}})
+    m.maybe_set_title("c1", "复现 PmcmFL 论文的第一句话")
+    assert m._load_index()["c1"]["title"] == "复现 PmcmFL 论文的第一句话"[:24]
+    m.maybe_set_title("c1", "第二条消息不该改标题")
+    assert m._load_index()["c1"]["title"] == "复现 PmcmFL 论文的第一句话"[:24]

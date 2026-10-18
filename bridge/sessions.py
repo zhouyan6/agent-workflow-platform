@@ -41,8 +41,19 @@ class PiSessionManager:
             json.dump(idx, f, ensure_ascii=False, indent=1)
         os.replace(tmp, self._index_path())
 
+    @staticmethod
+    def _norm_entry(conv_id: str, val) -> dict:
+        if isinstance(val, dict):
+            return {"path": val.get("path", ""), "title": val.get("title") or conv_id,
+                    "updated": val.get("updated", "")}
+        return {"path": str(val), "title": conv_id, "updated": ""}
+
+    def _conv_entries(self) -> dict[str, dict]:
+        return {cid: self._norm_entry(cid, v)
+                for cid, v in self._load_index().items()}
+
     def _resume_path(self, conv_id: str) -> str | None:
-        path = self._load_index().get(conv_id)
+        path = self._conv_entries().get(conv_id, {}).get("path")
         return path if path and os.path.isfile(path) else None
 
     def _pi_env(self, conv_id: str) -> dict:
@@ -92,11 +103,59 @@ class PiSessionManager:
             path = state.get("sessionFile")
             if path:
                 idx = self._load_index()
-                idx[conv_id] = path
+                prev = idx.get(conv_id)
+                prev = self._norm_entry(conv_id, prev) if prev is not None else {
+                    "path": path, "title": conv_id, "updated": ""}
+                idx[conv_id] = self._touch(prev, path=path)
                 self._save_index(idx)
         except Exception:
             log.warning("record session path failed", exc_info=True)
         return client
+
+    @staticmethod
+    def _touch(entry: dict, path: str | None = None, title: str | None = None) -> dict:
+        import datetime
+        return {"path": path if path is not None else entry.get("path", ""),
+                "title": title if title is not None else entry.get("title", ""),
+                "updated": datetime.datetime.now().isoformat(timespec="seconds")}
+
+    def list_convs(self) -> list[dict]:
+        entries = self._conv_entries()
+        rows = [{"id": cid, "title": e["title"], "updated": e["updated"]}
+                for cid, e in entries.items()]
+        rows.sort(key=lambda r: r["updated"], reverse=True)
+        return rows
+
+    def delete_conv(self, conv_id: str) -> bool:
+        idx = self._load_index()
+        if conv_id not in idx:
+            return False
+        entry = self._norm_entry(conv_id, idx[conv_id])
+        client = self._clients.pop(conv_id, None)
+        if client:
+            try:
+                import asyncio
+                asyncio.get_event_loop().create_task(client.close())
+            except RuntimeError:
+                pass
+        idx.pop(conv_id)
+        self._save_index(idx)
+        path = entry.get("path")
+        if path and os.path.isfile(path):
+            try:
+                os.remove(path)
+            except OSError:
+                log.warning("remove session file failed: %s", path, exc_info=True)
+        return True
+
+    def maybe_set_title(self, conv_id: str, first_text: str) -> None:
+        idx = self._load_index()
+        raw = idx.get(conv_id)
+        entry = self._norm_entry(conv_id, raw) if raw is not None else None
+        if entry is None or entry["title"] != conv_id:
+            return
+        idx[conv_id] = self._touch(entry, title=(first_text or conv_id)[:24].strip() or conv_id)
+        self._save_index(idx)
 
     async def shutdown(self) -> None:
         for client in self._clients.values():

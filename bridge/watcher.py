@@ -55,7 +55,7 @@ class TaskWatcher:
 
     def start(self) -> None:
         if self._task is None:
-            self._task = asyncio.get_event_loop().create_task(self.loop())
+            self._task = asyncio.create_task(self.loop())
 
     def stop(self) -> None:
         if self._task:

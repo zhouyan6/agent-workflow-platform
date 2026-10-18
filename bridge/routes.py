@@ -32,14 +32,14 @@ def mount_pi(app, root, resolve_token_fn, ctx_factory=None) -> None:
     from .watcher import TaskWatcher
     watcher = TaskWatcher(os.path.join(root, "workbench.db"), manager)
 
-    def _start_watcher():
+    async def _start_watcher():
         watcher.start()
 
-    def _stop_watcher():
+    async def _stop_watcher():
         watcher.stop()
 
-    app.add_event_handler("startup", _start_watcher)
-    app.add_event_handler("shutdown", _stop_watcher)
+    app.on_event("startup")(_start_watcher)
+    app.on_event("shutdown")(_stop_watcher)
 
 
 def _history_entries(messages: list) -> list[dict]:

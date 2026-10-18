@@ -58,6 +58,14 @@ async def call_tool(name: str, call: ToolCall,
         raise HTTPException(503, "ctx_factory 未配置（server 未接入）")
     ctx = _manager.ctx_factory(user)
     result = await asyncio.to_thread(agent_tools.dispatch, name, call.args, ctx)
+    if name == "submit_task":
+        try:
+            payload = json.loads(result)
+            task = payload.get("task") or {}
+            if payload.get("ok") and task.get("id"):
+                _manager.watch_task(call.conv, task["id"])
+        except (ValueError, AttributeError):
+            pass
     return {"result": result}
 
 

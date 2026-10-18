@@ -12,12 +12,16 @@ class FakeManager:
         self.bridge_token = "tok123"
         self._users = {"c1": {"username": "u", "role": "advisor"}}
         self.plans = {}
+        self.watched = None
 
     def user_for(self, conv_id):
         return self._users.get(conv_id)
 
     async def push_plan(self, conv_id, steps):
         self.plans[conv_id] = steps
+
+    def watch_task(self, conv, tid):
+        self.watched = (conv, tid)
 
 
 def _client(monkeypatch):
@@ -78,3 +82,18 @@ def test_update_plan_special_case(monkeypatch):
                      "conv": "c1"})
     assert r.status_code == 200
     assert mgr.plans["c1"] == [{"title": "s", "status": "pending"}]
+
+
+def test_submit_task_registers_watch(monkeypatch):
+    c, mgr = _client(monkeypatch)
+    mgr.ctx_factory = lambda user: {"ctx": True}
+
+    def fake_dispatch(name, args, ctx):
+        return json.dumps({"ok": True, "task": {"id": 7, "name": "t"}},
+                          ensure_ascii=False)
+
+    monkeypatch.setattr(tb.agent_tools, "dispatch", fake_dispatch)
+    r = c.post("/api/pi/tools/submit_task", headers={"x-bridge-token": "tok123"},
+               json={"args": {}, "conv": "c1"})
+    assert r.status_code == 200
+    assert mgr.watched == ("c1", 7)

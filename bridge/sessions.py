@@ -21,6 +21,7 @@ class PiSessionManager:
         self.ctx_factory = None                 # 由 mount_pi 赋值（server._agent_ctx）
         self._users: dict[str, dict] = {}
         self._plans: dict[str, list] = {}
+        self._watch: dict[int, str] = {}
 
     # ---- conv_id → session 文件 映射（Pi 文件名是 时间戳_uuid.jsonl，
     # 不含会话名，无法按名匹配，必须由桥自己记录）----
@@ -181,3 +182,16 @@ class PiSessionManager:
         client = self._clients.get(conv_id)
         if client and client.process.alive:
             await client.stream_events.put({"type": "_bridge_run", "run": run})
+
+    def watch_task(self, conv_id: str, task_id: int) -> None:
+        self._watch[int(task_id)] = conv_id
+
+    async def inject_task_event(self, conv_id: str, text: str) -> None:
+        client = self._clients.get(conv_id)
+        if not client or not client.process.alive:
+            return
+        await client.stream_events.put({"type": "_bridge_event", "text": text})
+        try:
+            await client.command({"type": "prompt", "message": text})
+        except Exception:
+            log.info("agent busy; event shown without follow-up prompt")

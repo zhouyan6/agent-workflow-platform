@@ -70,3 +70,8 @@ def test_bridge_run_to_run_update():
            "stages": [{"title": "s", "status": "pending"}], "updated": "x"}
     assert translate_event({"type": "_bridge_run", "run": run}) == [
         {"type": "run_update", "run": run}]
+
+
+def test_bridge_event_to_agent_event():
+    assert translate_event({"type": "_bridge_event", "text": "任务结束"}) == [
+        {"type": "agent_event", "text": "任务结束"}]

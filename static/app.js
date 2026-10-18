@@ -13,7 +13,7 @@ const App = {
     };
   },
   template: `
-  <div>
+  <div class="app">
     <div v-if="needLogin" class="login-mask">
       <div class="login">
         <h3>科研智能体 · 登录</h3>

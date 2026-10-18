@@ -85,8 +85,9 @@ async def delete_conv(conv_id: str, request: Request, wb_session: str = ""):
 
 
 @router.get("/api/pi/runs")
-def get_runs(conv: str = "", wb_session: str = ""):
-    _ws_user_cookie(wb_session)
+def get_runs(request: Request, conv: str = "", wb_session: str = ""):
+    # 查询参数 wb_session 与 cookie 两种方式都支持（同 /api/pi/convs）
+    _ws_user_cookie(wb_session or request.cookies.get("wb_session", ""))
     from .runs import Runs
     runs = Runs(manager.root)
     return {"runs": runs.for_conv(conv) if conv else []}

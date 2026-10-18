@@ -131,13 +131,6 @@ class PiSessionManager:
         if conv_id not in idx:
             return False
         entry = self._norm_entry(conv_id, idx[conv_id])
-        client = self._clients.pop(conv_id, None)
-        if client:
-            try:
-                import asyncio
-                asyncio.get_event_loop().create_task(client.close())
-            except RuntimeError:
-                pass
         idx.pop(conv_id)
         self._save_index(idx)
         path = entry.get("path")
@@ -147,6 +140,15 @@ class PiSessionManager:
             except OSError:
                 log.warning("remove session file failed: %s", path, exc_info=True)
         return True
+
+    async def aclose_client(self, conv_id: str) -> None:
+        """关闭并移除该会话的 Pi 子进程（由 async 路由调用）。"""
+        client = self._clients.pop(conv_id, None)
+        if client:
+            try:
+                await client.close()
+            except Exception:
+                log.warning("close client failed", exc_info=True)
 
     def maybe_set_title(self, conv_id: str, first_text: str) -> None:
         idx = self._load_index()

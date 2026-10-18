@@ -52,8 +52,9 @@ def list_convs(request: Request, wb_session: str = ""):
 
 
 @router.delete("/api/pi/convs/{conv_id}")
-def delete_conv(conv_id: str, request: Request, wb_session: str = ""):
+async def delete_conv(conv_id: str, request: Request, wb_session: str = ""):
     _ws_user_cookie(wb_session or request.cookies.get("wb_session", ""))
+    await manager.aclose_client(conv_id)
     return {"ok": manager.delete_conv(conv_id)}
 
 

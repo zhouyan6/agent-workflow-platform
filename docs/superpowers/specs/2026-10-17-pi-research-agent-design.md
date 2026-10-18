@@ -111,32 +111,34 @@ TypeScript 扩展只做协议适配（schema、调桥、截断输出），业务
 
 网页 → 桥 → Pi：用户消息 = `prompt`（流式期间用 `steer`/`followUp`）；中断 = `abort`。
 
-### 3.5 服务器注册表与执行器
+### 3.5 服务器注册表与执行器（2026-10-18 按第 4 期决策改写：桥生工具形态）
 
 `servers.json`（ROOT 下，示例）：
 
 ```json
 [
-  {"name": "inspur", "type": "workbench",
-   "base_url": "http://127.0.0.1:8787", "username": "niexin", "password_env": "WB_INSPUR_PW"},
-  {"name": "gpu2", "type": "ssh",
-   "host": "gpu2.lab.edu", "user": "zhouyan", "port": 22,
-   "repo_path": "~/exp-repo", "run_dir": "runs/"}
+  {"name": "local", "type": "local", "note": "本机（mock 显卡）"},
+  {"name": "inspur", "type": "ssh",
+   "host": "127.0.0.1", "port": 15000, "user": "niexin",
+   "repo_path": "~/PcmDiffFL", "log_dir": "logs/", "note": "实验室浪潮机（校园隧道）"},
+  {"name": "gpu2", "type": "workbench",
+   "base_url": "http://127.0.0.1:8788", "username": "niexin", "password_env": "WB_GPU2_PW"}
 ]
 ```
 
-统一执行器接口：
+- **local**：现有 11 个 agent.tools 直接覆盖（不带 server 参数即本地）
+- **ssh（本期主力）**：SSHExecutor，命令执行抽象为可注入 runner（单测用 FakeRunner）；inspur 经校园隧道 `ssh -p 15000`；Windows OpenSSH 免密一次性配置，失败报错指路
+- **workbench**：WorkbenchExecutor，httpx 登录（密码从 password_env 环境变量读）复用远端队列；本期实现、无真机则不验收
 
-```
-gpu_status() -> list[GPU]
-list_tasks(active_only) -> list[Task]
-submit(command, gpu, repo_sync) -> Task
-logs(task, lines) -> str
-stop(task) -> ok
-```
+执行器统一异步接口：`gpu_status() / submit(command, gpu) / logs(ref, lines) / stop(ref) / alive(ref)`。
+SSH 提交 = `cd repo && git pull && CUDA_VISIBLE_DEVICES=<gpu> nohup <cmd> > logs/agent-<ts>.log 2>&1 & echo $!`；裸机任务由桥登记 pid + `ps -p` 轮询存活。
 
-- WorkbenchExecutor：登录（密码从环境变量读）拿 session cookie，调现有 `/api/gpu` `/api/tasks` 等
-- SSHExecutor：Windows OpenSSH 免密（ssh-keygen + authorized_keys，一次性配置）；提交 = `git pull && nohup <command> > run.log 2>&1 &`，进程组记录 pid 到桥侧登记表（裸机任务状态由桥跟踪：pid 存活检查 + 日志 mtime）
+桥生工具（BRIDGE_TOOLS 追加，现有本地工具不动）：`list_servers`（注册表+健康）、`gpu_status_remote{server?}`、`submit_train{server,command,gpu?,name?}`（**强制确认**，提交前远端 git pull）、`log_tail{server,ref|path,lines?}`（拉回尾部 + NaN/OOM/Tracebook 标记 + 复用 experiments.py 解析最优指标）、`stop_train{server,ref}`（**强制确认**）。
+
+### 3.5b 远程监控与飞书（第 4 期新增）
+
+- RemoteWatcher：对桥登记的远端 pid 定期 `ssh ps -p`；结束时拉日志尾部，走第 3 期的注入链路（agent_event + followUp 唤醒智能体分析）
+- 飞书：本地与远程任务结束/失败时推结果摘要，复用 `feishu.py::notify(db, kind, text)`；server 启动时把 `lambda kind,text: notify(db,...)` 注入桥；**只推任务结果**，确认待办不推（用户拍板）
 
 ### 3.6 记忆
 

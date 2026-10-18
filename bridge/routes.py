@@ -30,6 +30,20 @@ def mount_pi(app, root, resolve_token_fn, ctx_factory=None) -> None:
     mount_tool_backend(app, manager)
 
 
+def _history_entries(messages: list) -> list[dict]:
+    out = []
+    for msg in messages or []:
+        role = msg.get("role")
+        if role not in ("user", "assistant"):
+            continue
+        text = "".join(
+            b.get("text") or "" for b in (msg.get("content") or [])
+            if isinstance(b, dict) and b.get("type") == "text")
+        if text.strip():
+            out.append({"role": role, "text": text})
+    return out
+
+
 async def _pump(client, ws) -> None:
     while True:
         obj = await client.stream_events.get()
@@ -70,6 +84,13 @@ async def pi_ws(ws: WebSocket):
         return
     conv = ws.query_params.get("conv") or "default"
     client = await manager.get(conv, user)
+    try:
+        data = await client.command({"type": "get_messages"})
+        entries = _history_entries(data.get("data") or [])
+        await ws.send_text(json.dumps(
+            {"type": "history", "entries": entries}, ensure_ascii=False))
+    except Exception:
+        pass  # 历史回放失败不阻塞新对话
     pump = asyncio.create_task(_pump(client, ws))
     try:
         while True:

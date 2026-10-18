@@ -17,3 +17,4 @@ pi-sessions/
 *.zip
 config.json
 ssh-config.laptop.example
+runs.json

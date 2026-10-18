@@ -6,8 +6,27 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const CONFIRM_TOOLS = new Set(["stop_task", "submit_task", "save_report"]);
-const DANGEROUS_BASH =
-  /(rm\s+-rf|git\s+push\s+.*--force|git\s+reset\s+--hard|shutdown|reboot)/i;
+
+// §10 强制门禁：任何 git push 都要确认；rm 的 -r -f 组合（含 -rf/-fr/-r -f 变体）、
+// git reset --hard、关机重启同理。按命令段解析（分割 ;|& 换行），首词必须是目标命令，
+// 避免 "grep git push doc" 之类误报。
+function bashDanger(cmd: string): string | null {
+  for (let seg of cmd.split(/[;\n|&]+/).map(s => s.trim()).filter(Boolean)) {
+    if (seg.startsWith("sudo ")) seg = seg.slice(5).trim();
+    const m = seg.match(/^(\S+)(?:\s+([\s\S]*))?$/);
+    if (!m) continue;
+    const head = m[1], args = m[2] || "";
+    if (head === "git" && /^push\b/.test(args)) return seg;
+    if (head === "git" && /^reset\b[\s\S]*--hard\b/.test(args)) return seg;
+    if (head === "rm") {
+      const flags = args.split(/\s+/)
+        .filter(t => /^-[A-Za-z]+$/.test(t)).map(t => t.slice(1)).join("");
+      if (flags.includes("r") && flags.includes("f")) return seg;
+    }
+    if (head === "shutdown" || head === "reboot") return seg;
+  }
+  return null;
+}
 
 interface FnDef {
   name: string;
@@ -90,7 +109,8 @@ export default async function (pi: ExtensionAPI) {
       what = `工具 ${name}\n参数: ${JSON.stringify(event.input ?? {})}`;
     } else if (name === "bash") {
       const cmd = String((event.input as { command?: string })?.command ?? "");
-      if (DANGEROUS_BASH.test(cmd)) what = `危险命令: ${cmd}`;
+      const danger = bashDanger(cmd);
+      if (danger) what = `危险命令: ${danger}`;
     }
     if (!what) return;
     const ok = await ctx.ui.confirm("确认操作", `${what}\n\n允许执行吗？`, {
